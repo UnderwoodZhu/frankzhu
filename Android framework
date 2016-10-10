@@ -1,0 +1,133 @@
+一、Android应用程序：代码与资源。
+资源：UI相关的一切东西。
+资源与代码分离有很多好处，但是资源管理的问题需要学习。
+
+二、资源主要分为两大类：assets与res。Assets是一些原始的资源，根据文件名来访问资源。Res大多为需要编译的资源，在编译过程中每个资源都会被赋予一个ID，访问的时候，根据ID来查找资源。
+
+三、程序资源的组织规则：十八个维度。
+MCC&MNC、language&region、Layout Direction、smallest Width、Available Width、Available height、screen size、screen aspect、screen orientation、UI mode、Night mode 、 等等
+
+四、资源匹配的流程：
+①首先排除与目标冲突的资源项目。②根据十八个维度，按照上述顺序，一个维度一个维度地匹配，如果没有与目标符合的资源，那么跳过这一项，进行下一个维度地匹配。如果有与目标匹配的资源，则去掉不负责这个维度地资源项目。
+
+
+五、资源要先编译与打包，才能使用。
+先说APK文件：维基上的定义如下：
+Android 应用程序包文件 (APK) 是一种Android操作系统上的应用程序安装文件格式，其英文全称为 “Android application package” 。一个Android应用程序的代码想要在Android设备上运行，必须先进行编译，然后被打包成为一个被Android系统所能识别的文件才可以被运行，而这种能被Android系统识别并运行的文件格式便是“APK”。 一个APK文件内包含被编译的代码文件(.dex 文件)，文件资源（resources）， assets，证书（certificates），和清单文件（manifest file）。[1][2][3][4]
+APK 文件基于 ZIP 文件格式，它与JAR文件的构造方式相似。它的互联网媒体类型是application/vnd.android.package-archive.
+ 即Apk中既有代码文件也有资源文件，资源文件通过aapt，即Android资源打包工具打包到apk中。在打包之前的话，大部分的XML文件会编译成二进制文件。
+ 资源的编译与打包是一个很重要的过程。
+     
+     
+     资源的编译与打包的过程，主要完成了以下几个工作：
+①	译xml为二进制文件
+②	打包
+③	赋予每一个非assets文件一个ID，存放在R.java文件中，即生成R.java文件
+④	生成resources.arsc文件，用来描述具有ID的资源的配置信息，即资源的十八个维度。这个文件是问了帮助查找资源的，所以本质上是一个资源索引表。
+打包的过程：
+①	解析AndroidManifest.xml文件，获取这个应用程序的包名。，然后根据这个包名创建一个资源表：ResourceTable对象。
+②	添加引用的包：
+系统的通用资源经过编译之后，位于out/target/common/obj/APPS/*****/package-export.apk中,所有的应用程序都会引用这个包。根据资源的ID来区分资源包：ID通常由一个四字节的无符号整数表示。从高到低依次为：第一字节表示包名，即Package ID，第二字节表示Type ID，第三、第四字节表示Entry ID。
+Package ID的取值范围是：[0x01，0x7f]之间，即，0000 0001~~~0111 1111。其中0x01表示系统资源包，即上面说的package-export.apk。0x07表示自己应用程序的包。
+总结一下就是，第一个是系统的，最后一个是自己的，引用的其他包赋给中间的编号。
+Type表示：animator、anim、color、Drawable、layout、menu、raw、string、xml这些，一种一个ID，用于区分。
+Entry表示每一个资源在同一种类型资源，即Type相同的情况下，出现的次序。
+用这三个ID，可以将资源很好的区分。
+
+
+
+关于资源的定义、分类、编译、打包的东西大概是那么个意思，暂且如此，不钻细节。
+
+资源准备好之后，Android应用程序通过通过资源管理器来读取资源。这个是重点，资源应用的流程在这里，主题的应用也在这里。
+
+
+六、Assets Manager
+Android应用程序在运行是的资源，通过资源管理器AssetManager来帮忙从打包好的apk中取资源。这个是重点，很重要。正式进入全局主题的原理介绍。
+
+应用程序的可视化界面大多是由activity承载的，所有的activity都关联有一个描述上下文的ContextImpl对象。基本上这个上下文对象代理这activity的所有活动。
+
+Activity访问资源的两个主要方法：①getResources②getAssets，也是由contextimpl来代理的。
+getResources方法返回一个专属于这个应用程序、或者apk的Resources对象。这个对象在应用程序中是一个全局变量。存储在comtextImpl对象的一个成员变量mResources中。这个东西可以根据ID查找到资源。
+getAssets方法返回一个专属于这个应用程序的AssetManager对象，存储在上面的静态变量mResources的一个成员变量mAsset中。这个东西可以根据名字查找到资源。
+
+Resources.java 中的getAssets方法是用来返回自己的mAsset的变量。
+
+系统的资源统一打包在：system/framework/frameworks-res.apk中，如何管理的呢？在Resources.java类中有一个静态变量Resource mSystem，AssetManager.java中有一个静态变量Assetmanager  sSystem。在两个类中，都有一个方法获取他，getSystem方法。
+
+每个activity组件在应用程序进程中加载的过程中，都会创建一个对应上下文对象ComtextImpl，这个对象的作用是帮助这个activity进行上下文的创建，其中就包括Resources与AssetsManager的创建。
+
+关于Resources与AssetManager对象的创建，在之前的Android版本主要分为14步：
+①	首先是ContextImpl中的初始化方法，inti()，在这里主要做的事情是调用LoadedApk.getResource(ActivityThread mainThread),返回了一个Resources对象，并且对自己的一个成员变量mPackageInfo进行赋值，赋值的内容是这个activity所属的APK（loadedApk对象描述）。
+②	LoadedApk.getResource()这里做的事情是如果自己的成员变量不是空的，那么就直接返回mResources，否则返回就对mResources进行赋值，赋的值来源于mainThread.getTopLevelResources（String mResDir， CompatibilityInfo complInfo）所获取的Resources对象。其中mResDir表示的是这个APK的路径，例如 ：/system/app/BBKTheme.apk。后面的参数表示的是？？？？
+③	这一步就是到ActivityThread.getTopLevelResources。
+ActivityThread是什么？暂且理解为所谓的主线程，即UI线程。在这里完成activity的启动的操作。
+getTopLevelResources方法返回一个Resources对象。
+在他的内部实现的逻辑：内部有一个HashMap对象mActivityResources，这里面存储着这个进程中涉及到的所有的apk的以及这个apk对应得Resources对象。
+
+这个方法的开始就是根据这个apk的路径生成一个key在上面的HashMap中查找。如果找到，且对应的Resources对象没有过期，则直接返回。
+否则就县创建一个AssetManager，将这个apk的路径作为资源路径。
+然后根据这个Assetsmanager对象创建一个Resources对象，存储到上面那个HashMap中。
+
+注：在之后的Android版本中，如Android5.1这里的逻辑有变，这个方法在ResourcesManager中进行，这里略去不表
+
+④	从这一步开始，是重点，了解AssetManager对象的创建过程，对最终目的了解全局主题的原理，很重要。
+接上面这里开始说AssetsManager对象的创建。
+这里分为了两步，第一步调用native方法init(),进行初始化，然后调用的ensureSystemAssets()这个方法，来保证sSystem这个成员变量即对系统资源的访问的那个AssetsManager已创建，否则就创建一个。这个sSystem与一般的AssetsManager没有区别，一个访问应用程序的apk，一个访问系统的资源即framework-res.apk。
+⑤	下面是一系列的C++层的函数，来真正完成创建AssetsManager的工作
+（1）Init的第一步，创建一个C++层的AssetsManager对象
+（2）用上面的C++层的对象添加默认的资源路径。然后把这个对象的地址保存在java层的AssetsManager对象的成员变量mObject中。
+（3）C++层的AssetsManager类通过调用成员函数addDefaultAssets，通过环境变量获得Android的系统路径，然后将全局变量kSystemAssets所指向的字符串田间道系统路径的后面（这个字串的内容是：framework/frameworks-res.apk）获取资源文件framework-res.apk的绝对路径。注：一般Android的系统路径为system/。
+（4）获取了上一步的系统资源的绝对路径之后，将其添加到当前正在初始化的AssetManager对象中去。添加的目的地是一个类型为asset_path的Vector。添加的过程中，如果已经添加，会返回一个cookie给调用者，这个cookie是一个整数，表示这个Vector的大小。如果未添加这个，那么就添加进去，然后再返回一个cookie，意义同上。
+（5）这里还涉及到了Android的一个资源覆盖机制，在AssetManager类的添加资源目录的过程中，如果资源是存放在/system/framework/之中的话，就会去到vender/overlay/framewok之下找同名的apk资源，也存放到资源Vector中，添加一个idmap之后，可以说明哪些默认的资源将被覆盖。那么在后面这个文件夹之下的资源会替代之前的文件夹中的资源。
+⑥	在AssetsManager对象创建完成之后，会创建一个Resources对象。
+到这里会有了一个Resources对象，这个对象包含了一个AssetsManager对象。这两个对象中有这个应用程序的apk信息。保存有这个应用程序的apk路径。
+应用程序使用ID查找资源是，将ID传给Resources对象，获取到这个资源的名，然后，Assetmanger根据资源名去调用C++层的AssetsManager对象去获取资源。
+
+七，资源的查找过程。
+这是最后一步，总结完之后，去总结下我们的全局主题流程。
+查找资源，有两个方法，一个是根据资源的ID，即R.***.***。在一个就是根据资源名。根据ID查找资源的时候，会依靠Resources对象来找，根据资源名查找资源的时候，需要依仗AssetsManager对象来找。本质都是后者在找，Resources对象只不过是根据ID获取到资源的名，把这个名字交给AssetsManager对象去做其他的事情。
+这里分析的内容主要是，resources对象根据ID找到资源名的过程。后面的就会比较底层，暂且停住。
+资源的ID与资源的名称的对应关系是resources.arsc描述的。这个表是在资源编译与打包的过程中生成的。这个表中不仅有资源的名字，资源与ID的对应关系，还有资源的配置信息，即资源的十八个维度，这些信息综合起来保证了应用程序在具体的某个分辨率的情况下找到最合适的资源。
+字串资源的话，根据id就可直接获取到其内容，名称即内容！
+
+应用程序的界面由activity来承载，activity的界面加载过程始于setContentView,从这里开始。
+①	Activity.setContentView(R.****.****)。调用了PhoneWindow.setContentView(int ID)
+②	PhoneWindow.setContentView(int ID)。
+（1）	这一步的第一个工作是PhoneWindow这个类中有一个成员变量:mContentParent。这个东西的是activity的UI容器。在这里呢，如果这个容器为空，则创建之，如果这个容器非空，则清空之前的内容，即重新构造这个容器。
+（2）	然后，通过PhoneWindow的另外一个成员变量，这个成员变量是从LayoutInflater的子类PhoneLayoutInflater的的对象：mLayoutInflater。这个对象的工作是通过inflater(id,mContetnParent)把参数描述的布局添加到上一步的UI容器mContetnParent中。这样就可以完成加载视图的工作了。
+③	这一步，继续深入看一下LayoutInflater.inflater(int , ViewGroup root).这个个方法主要是通过调用应用程序的Resources对象中的getLayout(int ID)来获取这个layout资源对象的，这里获取到的XMLResourceParser对象之后，传入另外一个inflater方法，把这个对象，显示成一个UI界面。
+④	Resource.getLayout()进入主题，主题中没有对这里进行修改，但是流程走一遍，会对理解其他的过程会很有帮助。
+这个方法直接调用了另外一个方法Resource.loadXmlResourceParser(id,”layout”)。直接下一步，继续深入。
+⑤	Resource.loadXmlResourceParser(id,”layout”)。这个方法里，首先调用Resource.getValue（ID）来获取这个ID对应的资源值，保存在TypedValue类型的变量value中。这里返回的是一个UI布局的名称，因为这里是一个Layout类型的资源。Resource.getValue返回空，或者不是一个字串资源，那么抛出异常。
+⑥	Resource.getValue（int ID，TypeValue outValue， **），获取资源，存储在TypeValue类型的这个参数中。这个方法很重要，获取资源全靠他。全局主题的逻辑也会走这里。好好搞搞。
+在这个方法里主要是调用了Resources的成员变量的mAssets的getResourceValue（（int ID，TypeValue outValue， **）来获取资源的，继续深入咯。
+⑦	AssetsManager.getResourceValue
+在这个方法里的调用loadResourceValue(（int ID，TypeValue outValue，Boolean resolve)来加载资源，依据是上面传来的资源的ID。如果加载成功的话，将资源存放在这个outType的变量中，返回值block大于0；
+
+之前看框架代码没有懂的一点，在这里借借东风
+
+插一题外话：这里的loadResourceValue的返回值block大于等于0 的时候，实际上就表示参数id描述的资源在当前的应用程序中的使用第block个资源索引表中。如果参数id描述的是一个字符串的时候，可以在第block个资源索引表的资源项的字串资源池中找到对应的字符串，保存在outValue描述的TypeValue对象的成员变量string中，以便返回给调用者使用。字串在索引表中的位置信息保存在data变量中。
+
+⑧	AssetsManager.loadResourceValue(nt ID，TypeValue outValue， Boolean resolve)
+到这里就是个JNI方法了，主要目的是搞懂流程，不扣代码细节。
+概括一下过程：
+（1）	通过某个函数，将java层的AssetsManager对象转变成C++等的AssetsManager对象
+（2）	通过C++层的AssetsManager对象的成员函数getResources获得一个ResTable对象，这个对象描述的内容，如其名，是一个资源表。
+（3）	通过上一步的ResTable对象的成员函数getResources获得与资源ID所对应的资源项的值以及相应的配置信息（18个维度）。将获取的相关内容保存在类型为Res_value的变量value以及ResTable_config 类型的变量config中。
+（4）	如果参数中的resolve为true，那么就会继续调用其他的方法解析前面得到的资源项的值。参数中的resolve表示的是什么呢？是从Resources的loadXmlResourceParser中调用的getValue中传进去的，true。
+
+（5）	调用函数copyValue将上述资源项的值拷贝到参数outValue所描述的一个java层的outValue对象中。返回给调用者资源想的内容。
+
+
+⑨	AssetManager.getResources()
+这个方法是直接调用getResTable方法获取当前应用的资源表。这个方法中做的事情是解析当前应用程序的中的resources.arsc文件，得到一个ResTable对象。
+   解析这个文件做的事情主要包括：如果没有获取resources.arsc文件就去获取，如果没有创建ResTable对象就去创建。提取出来的文件存放在一个Asset对象中，将这个对象添加Restable中去即可。解析的内容是一系列package包的组合，每个package中都会有一系列资源的详细信息。然后这一系列的packages信息存放在ResTable对象中。同时，idmap也会被解析成为一个Asset对象，被添加到ResTable对象中。
+
+
+①	统资源包/system/framework/framework-res.apk
+②	应用程序自己的资源包apk包。
+保存在成员变量mAssetPaths中。
+这个类中的成员变量mResources指向一个ResTable对象这个对象描述
+
+
+⑩	ResTable.getResources（）
