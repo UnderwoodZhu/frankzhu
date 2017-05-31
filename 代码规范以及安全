@@ -1,0 +1,5 @@
+（1）fragment注入
+参考资料：
+http://blog.csdn.net/pxb1988/article/details/17281659
+http://droidsploit.baidu.com/view/13121001.html
+解决： PreferenceActivity.isValidFragment
