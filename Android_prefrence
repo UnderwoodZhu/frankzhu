@@ -1,0 +1,36 @@
+参考文档：
+https://developer.android.com/reference/android/preference/Preference.html
+https://developer.android.com/guide/topics/ui/settings.html
+
+prefrence 使用setkey来设置key，用于在SharedPreferences中存储数据。
+
+
+          使用 setIntent来设置一个intent，用于点击时跳转。
+
+
+PreferenceActivity是一个ListActivity的子类
+
+Preferencemanager是一个用来创建preference的类，在Activity或者xml中创建
+
+PreferenceCategory 是一个PreferenceGroup，用于为若干个Preference进行分组，并且提供一个不可点击的title。通常作为PreferenceScreen的子控件。
+
+PreferenceScreen是一个PreferenceGroup，用于作为根Preference进行preference的展示过程，或者作为另外startActivity的一个入口
+创建对象时，需要通过Preferencemanager.createPreferenceScreen来创建
+
+CheckBoxPreference 是一个TwoStatePreference，布局中有一个checkbox，存储一个boolean  true||false
+
+SwitchPreference是一个TwoStatePreference，布局中是一个Switch，存储一个boolean true||false ，两个选项
+
+
+
+DialogPreference ：preference被点击时会弹出一个Dialog
+
+EditTextPreference 是DialogPreference的子类，在弹出的dialog中添加一个EditText，可以通过getEditText()或者在xml配置相关的属性，来对Textview
+进行管控。
+
+ListPreference 是DialogPreference的子类，通过dialog展示一个List。setEntries  与 setEntryValues(CharSequence[])来设置一个List的值，必须设置
+
+
+！！setDependency这个方法会在preference hierarchy中进行查找，需要先将此preference添加到PreferenceScreen、PreferenceCategory中才可以找到key。
+
+！！字段不要乱用，比如这些：wifi-setting
